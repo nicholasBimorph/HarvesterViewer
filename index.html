@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My first three.js app</title>
+    <title>HB 3D Web Viewer</title>
     <link rel="stylesheet" href="css/main.css">
 
     <httpProtocol>
@@ -27,6 +27,11 @@
 
         //import  THREE from 'https://cdn.skypack.dev/three.js'; => Does not work properly, made scene not change and zoom not work!
 
+
+        //	import Stats from './jsm/libs/stats.module.js';
+
+        import Stats from 'https://cdn.skypack.dev/three@0.128.0/examples/jsm/libs/stats.module.js'
+
         import * as THREE from 'https://unpkg.com/three/build/three.module.js'
 
         import { OrbitControls } from 'https://cdn.skypack.dev/three@0.128.0/examples/jsm/controls/OrbitControls.js'
@@ -35,15 +40,21 @@
 
         //import { H } from './js/test.js';
 
-        let camera, scene, renderer;
+        let camera, scene, renderer, container;
 
-        let geometry, material, mesh, controls, transformControl;
+        let geometry, material, mesh, controls, transformControl, stats;
 
         const Http = new XMLHttpRequest();
 
         //const url = 'https://localhost:44360/DataNodes/GetLatestNodeCollection';
 
         const url = 'https://localhost:44360/DataNodes/' + 'ResiWebDemo_MeshTest';
+
+        const scaleFactor = 0.1;
+
+        const mouse = new THREE.Vector2();
+
+        const raycaster = new THREE.Raycaster();
 
 
         init();
@@ -52,12 +63,16 @@
         function init() {
 
 
+            container = document.createElement('div');
+            document.body.appendChild(container);
+
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xcccccc);
             //scene.fog = new THREE.Fog( 0xa0a0a0, 10, 50 );
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
-            camera.position.set(26, - 40, 5);
+            camera.position.set(26, 50, 60);
+            camera.lookAt(0, 0, 0);
 
             initRenderer();
 
@@ -66,7 +81,7 @@
             initLights();
 
 
-            const grid = new THREE.GridHelper(2000, 20, 0x000000, 0x000000);
+            const grid = new THREE.GridHelper(100, 20, 0x000000, 0x000000);
             grid.material.opacity = 0.2;
             grid.material.transparent = true;
             scene.add(grid);
@@ -74,6 +89,86 @@
             getGeometryFromBimorphApi();
 
             window.addEventListener('resize', resize);
+
+            window.addEventListener('pointerdown', onPointerDown);
+
+            stats = new Stats();
+
+            scene.add(stats);
+            container.appendChild(stats.dom);
+
+        }
+
+        function onPointerDown(event) {
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children);
+
+            let intersectedObject;
+
+            if (intersects.length > 0) {
+
+                intersectedObject = intersects[0].object;
+
+                var type = intersectedObject.type;
+
+                if (type == 'Mesh') {
+
+
+
+                    var sceneObjects = scene.children;
+
+                    for (let i = 0; i < sceneObjects.length; i++) {
+                        const element = sceneObjects[i];
+
+                        if(element.name == 'Gimbal')
+                        {
+                            element.detach()
+                            scene.remove(element);
+                        }
+                        
+                    }
+
+                    let transformControll = new TransformControls(camera, renderer.domElement);
+
+                    transformControll.name = 'Gimbal';
+
+                    transformControll.addEventListener('dragging-changed', (event) => {
+
+                        controls.enabled = !event.value;
+
+                    });
+                
+                    transformControll.attach(intersectedObject);
+                    scene.add(transformControll);
+
+                }
+
+                // else
+                // {
+
+                //     if(intersectedObject.name=='Gimbal') return;
+
+                //     var sceneObjects = scene.children;
+
+                //     for (let i = 0; i < sceneObjects.length; i++) {
+                //         const element = sceneObjects[i];
+
+                //         if(element.name == 'Gimbal')
+                //         {
+                //             element.detach()
+                //             scene.remove(element);
+                //         }
+                        
+                //     }
+
+                // }
+
+
+            }
 
         }
 
@@ -96,49 +191,8 @@
 
                 if (nodes.length == 1) {
 
-                    const testScale = 0.01;
 
-                    var node = nodes[0]
-
-                    var valueJson = node.value;
-
-                    var value = JSON.parse(valueJson);
-
-                    var vertices = value.Vertices;
-
-                    var faces = value.Faces;
-
-                    const geometry = new THREE.BufferGeometry();
-                    const indices = [];
-                    const bufferGeoVertices = [];
-
-                    for (var i = 0; i < vertices.length; i++) {
-
-                        var vertArray = vertices[i];
-
-                        bufferGeoVertices.push(vertArray[0]*testScale, vertArray[1]*testScale, vertArray[2]*testScale);
-                    }
-
-                    for (let i = 0; i < faces.length; i++) {
-
-                        var faceArray = faces[i];
-
-                        for (let j = 0; j < faceArray.length; j++) {
-
-                            indices.push(faceArray[j])
-                        }
-
-                    }
-
-                    geometry.setIndex(indices);
-                    geometry.setAttribute('position', new THREE.Float32BufferAttribute(bufferGeoVertices, 3));
-                    geometry.computeFaceNormals();
-
-                    material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true });
-                    mesh = new THREE.Mesh(geometry, material);
-                    // mesh.position.Y = 10000;
-
-                    //mesh.rotation.x = Math.PI / 2;
+                    mesh = toThreeMesh(bimorphMeshJson)
 
                     transformControl = new TransformControls(camera, renderer.domElement);
 
@@ -156,60 +210,70 @@
 
                 if (nodes.length > 1) {
 
-                    const meshes = [];
 
                     for (let i = 0; i < nodes.length; i++) {
+
                         const node = nodes[i];
 
-                        var valueJson = node.value
+                        var bimorphMeshJson = node.value;
 
-                        var value = JSON.parse(valueJson);
+                        mesh = toThreeMesh(bimorphMeshJson)
 
-                        var vertices = value.Vertices;
-
-                        var faces = value.Faces;
-
-                        const geometry = new THREE.BufferGeometry();
-                        const indices = [];
-                        const bufferGeoVertices = [];
-
-                        for (var j = 0; j < vertices.length; j++) {
-
-                            var vertArray = vertices[j];
-
-                            bufferGeoVertices.push(vertArray[0], vertArray[1], vertArray[2]);
-                        }
-
-                        for (let k = 0; k < faces.length; k++) {
-
-                            var faceArray = faces[k];
-
-                            for (let m = 0; m < faceArray.length; m++) {
-
-                                indices.push(faceArray[m])
-                            }
-
-                        }
-
-                        geometry.setIndex(indices);
-                        geometry.setAttribute('position', new THREE.Float32BufferAttribute(bufferGeoVertices, 3));
-                        geometry.computeFaceNormals();
-
-                        material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true });
-                        mesh = new THREE.Mesh(geometry, material);
-                        mesh.rotation.x = Math.PI/-2;
-
-                       scene.add(mesh);
+                        scene.add(mesh);
 
                     }
 
                 }
 
-                console.log(json)
+                // console.log(json)
 
 
 
             }
+        }
+
+        // Convrts a BimorphMesh as a Json string
+        // to a Three.js mesh.
+        function toThreeMesh(bimorphMeshJson) {
+
+            var bimorphMesh = JSON.parse(bimorphMeshJson);
+
+            var vertices = bimorphMesh.Vertices;
+
+            var faces = bimorphMesh.FaceIndices;
+
+            const geometry = new THREE.BufferGeometry();
+            const indices = [];
+            const bufferGeoVertices = [];
+
+            for (var j = 0; j < vertices.length; j++) {
+
+                var vertArray = vertices[j];
+
+                bufferGeoVertices.push(vertArray[0], vertArray[1], vertArray[2]);
+            }
+
+            for (let k = 0; k < faces.length; k++) {
+
+                var faceArray = faces[k];
+
+                for (let m = 0; m < faceArray.length; m++) {
+
+                    indices.push(faceArray[m])
+                }
+
+            }
+
+            geometry.setIndex(indices);
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(bufferGeoVertices, 3));
+            geometry.computeFaceNormals();
+
+            material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true });
+            let mesh = new THREE.Mesh(geometry, material);
+            mesh.rotation.x = Math.PI / -2;
+
+            return mesh;
+
         }
 
         function initRenderer() {
@@ -267,6 +331,8 @@
             controls.update();
 
             renderer.render(scene, camera);
+
+            stats.update();
 
         }
 
