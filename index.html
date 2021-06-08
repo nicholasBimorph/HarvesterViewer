@@ -43,7 +43,7 @@
 
         //const url = 'https://localhost:44360/DataNodes/GetLatestNodeCollection';
 
-        const url = 'https://localhost:44360/DataNodes/'+'complexMesh18';
+        const url = 'https://localhost:44360/DataNodes/' + 'ResiWebDemo_MeshTest';
 
 
         init();
@@ -96,6 +96,8 @@
 
                 if (nodes.length == 1) {
 
+                    const testScale = 0.01;
+
                     var node = nodes[0]
 
                     var valueJson = node.value;
@@ -114,17 +116,17 @@
 
                         var vertArray = vertices[i];
 
-                        bufferGeoVertices.push(vertArray[0], vertArray[1], vertArray[2]);
+                        bufferGeoVertices.push(vertArray[0]*testScale, vertArray[1]*testScale, vertArray[2]*testScale);
                     }
 
                     for (let i = 0; i < faces.length; i++) {
 
                         var faceArray = faces[i];
 
-                         for (let j = 0; j < faceArray.length; j++) {
-                            
-                             indices.push(faceArray[j])
-                         }
+                        for (let j = 0; j < faceArray.length; j++) {
+
+                            indices.push(faceArray[j])
+                        }
 
                     }
 
@@ -134,19 +136,19 @@
 
                     material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true });
                     mesh = new THREE.Mesh(geometry, material);
-                   // mesh.position.Y = 10000;
+                    // mesh.position.Y = 10000;
 
                     //mesh.rotation.x = Math.PI / 2;
 
-                    transformControl = new TransformControls( camera, renderer.domElement );
+                    transformControl = new TransformControls(camera, renderer.domElement);
 
-					transformControl.addEventListener( 'dragging-changed', ( event ) => {
+                    transformControl.addEventListener('dragging-changed', (event) => {
 
-						controls.enabled = ! event.value;
+                        controls.enabled = !event.value;
 
-					} );
-					transformControl.attach( mesh );
-					scene.add( transformControl );
+                    });
+                    transformControl.attach(mesh);
+                    scene.add(transformControl);
 
                     scene.add(mesh);
 
@@ -154,13 +156,53 @@
 
                 if (nodes.length > 1) {
 
-                    nodes.forEach(node => {
+                    const meshes = [];
 
-                        var valueJson = node.value;
+                    for (let i = 0; i < nodes.length; i++) {
+                        const node = nodes[i];
+
+                        var valueJson = node.value
 
                         var value = JSON.parse(valueJson);
 
-                    });
+                        var vertices = value.Vertices;
+
+                        var faces = value.Faces;
+
+                        const geometry = new THREE.BufferGeometry();
+                        const indices = [];
+                        const bufferGeoVertices = [];
+
+                        for (var j = 0; j < vertices.length; j++) {
+
+                            var vertArray = vertices[j];
+
+                            bufferGeoVertices.push(vertArray[0], vertArray[1], vertArray[2]);
+                        }
+
+                        for (let k = 0; k < faces.length; k++) {
+
+                            var faceArray = faces[k];
+
+                            for (let m = 0; m < faceArray.length; m++) {
+
+                                indices.push(faceArray[m])
+                            }
+
+                        }
+
+                        geometry.setIndex(indices);
+                        geometry.setAttribute('position', new THREE.Float32BufferAttribute(bufferGeoVertices, 3));
+                        geometry.computeFaceNormals();
+
+                        material = new THREE.MeshPhongMaterial({ color: 0xffffff, flatShading: true });
+                        mesh = new THREE.Mesh(geometry, material);
+                        mesh.rotation.x = Math.PI/-2;
+
+                       scene.add(mesh);
+
+                    }
+
                 }
 
                 console.log(json)

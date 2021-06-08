@@ -1,26 +1,56 @@
-import * as THREE from 'https://unpkg.com/three/build/three.module.js'
+//import * as THREE from 'https://unpkg.com/three/build/three.module.js'
 
 
-class H {
+class BimorphAPIClientService {
 
     //let camera, scene, renderer;
 
-    constructor(httpRequest,urlEndpoint) {
+    httpRequest = new XMLHttpRequest();
 
-        this.httpRequest = httpRequest;
+    export  bimorphMeshes = [];
+
+    constructor(urlEndpoint) {
 
         this.urlEndpoint = urlEndpoint;
-
-    };
-
+    }
 
 
-     getGeometryFromBimorphApi(){
+
+      getBimorphMeshes(){
 
         httpRequest.open("GET", url);
+
         httpRequest.send();
 
+        // btw anonymous function syntax...
+        this.httpRequest.onreadystatechange = () => {
+
+            if(this.readyState == 4 && this.status == 200){
+
+                var json = Http.responseText;
+
+                var nodeCollection = JSON.parse(json);
+
+                var nodes = nodeCollection.nodes;
+
+                if(nodes.length==1){
+
+                    var node =  nodes[0]
+
+                    var valueJson =  node.value;
+
+                    var value = JSON.parse(valueJson);
+
+                    bimorphMeshes.push(value);
+                }
+
+
+            }
+
+        }
+
     }
+
 
     // httpRequest.onreadystatechange = function(){
 
@@ -93,4 +123,4 @@ class H {
 
 }
 
-export { H };
+export { BimorphAPIClientService };
